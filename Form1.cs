@@ -22,35 +22,62 @@ namespace JournalMaybe {
         [DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
 
-        static string[] files = { "todoList.txt", "myLittleDiary.txt" };
+        static string[] files = { "todoList.txt", "myLittleDiary.txt", "reminders.txt" };
         static List<string> diaryList = new List<string>();
         static List<string> todoList = new List<string>();
+        static List<DateTime> reminderList = new List<DateTime>();
+        static List<string> reminderComments = new List<string>();
+        static DateTime currentAlarm;
+        static bool alarmBeep = false;
+        static Thread alarm = new Thread(() => {
+            while (alarmBeep) {
+                Console.Beep(2000, 300);
+                Thread.Sleep(150);
+            }
+        });
 
         public void ReadFiles() {
+            foreach (string file in files) {
+                if (!System.IO.File.Exists(file))
+                    System.IO.File.Create(file).Close();
+            }
+
             string todoInputString = System.IO.File.ReadAllText(files[0]);
             string diaryInputString = System.IO.File.ReadAllText(files[1]);
+            string reminderInputString = System.IO.File.ReadAllText(files[2]);
             todoList.Clear();
             diaryList.Clear();
+            reminderList.Clear();
+            reminderComments.Clear();
             foreach (string element in todoInputString.Split("\n"))
                 todoList.Add(element + "\n");
             foreach (string element in diaryInputString.Split("\n"))
                 diaryList.Add(element);
-            todoList.Sort((x, y) => {
-                int intEndX = x.IndexOf(".");
-                int intEndY = y.IndexOf(".");
-                if (x == "\n" || y == "\n")
-                    return -1;
-                if (intEndX < 0 || intEndY < 0)
-                    return 1;
-                if (Int32.TryParse(x.Substring(0, intEndX), out int X) && Int32.TryParse(y.Substring(0, intEndY), out int Y)) {
-                    if (X > Y)
-                        return 1;
-                    else
-                        return -1;
-                } else {
-                    return -1;
+            foreach (string element in reminderInputString.Split("\n")) {
+                if (!element.Equals("")) {
+                    string[] chaos = element.Split(" ");
+                    reminderComments.Add(chaos[4]);
+                    DateTime date;
+                    int month = 0;
+                    switch (chaos[0]) {
+                        case "Jan": month = 1; break;
+                        case "Feb": month = 2; break;
+                        case "Mar": month = 3; break;
+                        case "Apr": month = 4; break;
+                        case "May": month = 5; break;
+                        case "Jun": month = 6; break;
+                        case "Jul": month = 7; break;
+                        case "Aug": month = 8; break;
+                        case "Sep": month = 9; break;
+                        case "Oct": month = 10; break;
+                        case "Nov": month = 11; break;
+                        case "Dec": month = 12; break;
+                    }
+                    string[] moreChaos = chaos[3].Split(":");
+                    date = new DateTime(Int32.Parse(chaos[2]), month, Int32.Parse(chaos[1].Substring(0, chaos[1].IndexOf(","))), Int32.Parse(moreChaos[0]), Int32.Parse(moreChaos[1]), Int32.Parse(moreChaos[2]));
+                    reminderList.Add(date);
                 }
-            });
+            }
             this.UpdateTextFields();
         }
 
@@ -74,6 +101,64 @@ namespace JournalMaybe {
             }
             this.todo.Text = updateText;
             System.IO.File.WriteAllText(files[0], updateText);
+
+            SortReminders();
+            string reminderText = "";
+            for (int i = 0; i < reminderList.Count; i++) {
+                reminderText += reminderList[i].ToString() + " " + reminderComments[i] + "\n";
+            }
+            System.IO.File.WriteAllText(files[2], reminderText);
+            this.reminder.Text = reminderText;
+            UpdateAlarm();
+        }
+
+        // TODO: Remove out of date reminders pls
+        public void SortReminders() {
+            reminderList.Sort((x, y) => DateTime.Compare(x, y));
+            try {
+                while (reminderList[0].CompareTo(DateTime.Now) < 0)
+                    reminderList.RemoveAt(0);
+            } catch (ArgumentOutOfRangeException) { return; }
+        }
+
+        public void UpdateAlarm() {
+            SortReminders();
+            try {
+                int compare = DateTime.Compare(currentAlarm, reminderList[0]);
+                if (compare > 0 || currentAlarm.Year == 1) {
+                    if (currentAlarm.Day == reminderList[0].Day || currentAlarm.Year == 1) {
+                        currentAlarm = reminderList[0];
+                        this.alarmTimer.Interval = GetTimeDifference(currentAlarm, DateTime.Now) * 1000;
+                        this.alarmTimer.Enabled = true;
+                    } else { return; }
+                } else if (compare < 0)
+                    return;
+                else if (compare == 0)
+                    return;
+            } catch (ArgumentOutOfRangeException) { this.alarmTimer.Enabled = false; return; }
+        }
+
+        public int TimeToSeconds(DateTime time) {
+            return time.Hour * 3600 + time.Minute * 60 + time.Second;
+        }
+
+        public int GetTimeDifference(DateTime first, DateTime second) {
+            return TimeToSeconds(first) - TimeToSeconds(second);
+        }
+
+        public void AlarmBeep(object someGarbage, EventArgs thatWeIgnore) {
+            this.alarmTimer.Enabled = false;
+            alarmBeep = true;
+            if (alarm.IsAlive == false)
+                alarm.Start();
+        }
+
+        public void FuckOffAlarm() {
+            if (alarmBeep) {
+                alarmBeep = false;
+                currentAlarm = new DateTime();
+            }
+            UpdateAlarm();
         }
 
         public void TodoSort() {
@@ -157,6 +242,7 @@ namespace JournalMaybe {
         protected override void WndProc(ref Message m) {
             if (m.Msg == 0x0312) {
                 int id = m.WParam.ToInt32();
+                FuckOffAlarm();
                 if (id == 1 && this.Visible == false) {
                     ReadFiles();
                     BeepThread.BeepPlease(1200, 500);
@@ -165,10 +251,12 @@ namespace JournalMaybe {
                     this.console.Text = "";
                     Application.OpenForms[this.Name].Activate();
                     this.ActiveControl = this.currentEntry;
+                    UpdateAlarm();
                 } else if (id == 2 && this.Visible == true) {
                     BeepThread.BeepPlease(800, 500);
                     this.Hide();
-                    this.AdjustTimer();
+                    AdjustTimer();
+                    UpdateAlarm();
                 } else if (id == 1 && this.Visible == true) {
                     Application.OpenForms[this.Name].Activate();
                     this.ActiveControl = this.currentEntry;
@@ -192,21 +280,25 @@ namespace JournalMaybe {
         }
 
         public void AdjustTimer() {
-            this.timer1.Interval = ((((DateTime.Now.Minute / 10 + 1) * 10) - DateTime.Now.Minute - 1) * 60 + (60 - DateTime.Now.Second)) * 1000;
+            DateTime now = DateTime.Now;
+            int min = (now.Minute / 10 + 1) * 10;
+            int hour = now.Hour;
+            if (min == 60)
+                min = 0;
+            if (min == 0 && hour == now.Hour)
+                ++hour;
+            DateTime diffTime = new DateTime(now.Year, now.Month, now.Day, hour, min, 0);
+            this.timer1.Interval = GetTimeDifference(diffTime, now) * 1000;
         }
 
         private void TimerTick(object sender, EventArgs e) {
-            using System.IO.StreamWriter sw = System.IO.File.AppendText("timings.txt");
-                sw.WriteLine(DateTime.Now.ToString());
+            BeepThread.BeepPlease(1200, 500);
             if (!this.Visible) {
-                // IntPtr handle = GetForegroundWindow();
-                BeepThread.BeepPlease(1200, 500);
                 this.currentEntry.Text = "";
                 this.console.Text = "";
                 ReadFiles();
                 this.Show();
                 this.ActiveControl = this.currentEntry;
-                // SetForegroundWindow(handle);
             }
         }
 
@@ -214,10 +306,11 @@ namespace JournalMaybe {
             if (e.KeyCode == Keys.Enter && e.Shift == false) {
                 BeepThread.BeepPlease(800, 500);
                 this.Hide();
-                this.AdjustTimer();
                 string[] output = { "[" + DateTime.Now.ToString() + "]\n" + this.currentEntry.Text + "\n\n" };
                 System.IO.File.AppendAllLines(files[1], output);
                 this.currentEntry.Text = "";
+                AdjustTimer();
+                UpdateAlarm();
             }
         }
 
@@ -238,6 +331,45 @@ namespace JournalMaybe {
                             return;
                         } else {
                             TodoRemove(remEntry);
+                        }
+                        // TODO: How to remove reminders? - maybe do same as todo
+                    } else if (this.console.Text.Substring(0, 3).Contains("rmd")) {
+                        string[] dateInfo = this.console.Text.Substring(4).Split("/");
+                        string comment;
+                        try {
+                            comment = dateInfo[dateInfo.Length - 1].Split(" ")[1];
+                        } catch (IndexOutOfRangeException) {
+                            comment = "";
+                        }
+                        dateInfo[dateInfo.Length - 1] = dateInfo[dateInfo.Length - 1].Split(" ")[0];
+                        DateTime currentTime = DateTime.Now;
+                        DateTime date;
+
+                        switch (dateInfo.Length) {
+                            case 2:
+                                date = new DateTime(currentTime.Year, currentTime.Month, currentTime.Day, Int32.Parse(dateInfo[0]), Int32.Parse(dateInfo[1]), 0);
+                                break;
+                            case 3:
+                                date = new DateTime(currentTime.Year, currentTime.Month, Int32.Parse(dateInfo[0]), Int32.Parse(dateInfo[1]), Int32.Parse(dateInfo[2]), 0);
+                                break;
+                            case 4:
+                                date = new DateTime(currentTime.Year, Int32.Parse(dateInfo[0]), Int32.Parse(dateInfo[1]), Int32.Parse(dateInfo[2]), Int32.Parse(dateInfo[3]), 0);
+                                break;
+                            case 5:
+                                date = new DateTime(Int32.Parse(dateInfo[0]), Int32.Parse(dateInfo[1]), Int32.Parse(dateInfo[2]), Int32.Parse(dateInfo[3]), Int32.Parse(dateInfo[4]), 0);
+                                break;
+                            default:
+                                this.console.Text = "";
+                                return;
+                        }
+                        if (date.CompareTo(currentTime) > 0) {
+                            reminderList.Add(date);
+                            reminderComments.Add(comment);
+                            UpdateTextFields();
+                            UpdateAlarm();
+                        } else {
+                            this.console.Text = "";
+                            return;
                         }
                     }
                 } catch (ArgumentOutOfRangeException) {
