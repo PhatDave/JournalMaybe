@@ -76,37 +76,49 @@ namespace JournalMaybe {
             System.IO.File.WriteAllText(files[0], updateText);
         }
 
-        public void TodoAdd(string entry) {
-            int intEnd = todoList[todoList.Count - 1].IndexOf(".");
-            try {
-                bool yes = Int32.TryParse(todoList[todoList.Count - 1].Substring(0, intEnd), out int lastEntry);
-                if (!yes)
-                    return;
-                string addEntry = (lastEntry + 1).ToString() + ". " + entry + "\n";
-                todoList.Add(addEntry);
-                this.UpdateTextFields();
-            } catch(ArgumentOutOfRangeException) {
-                return;
+        public void TodoSort() {
+            while (todoList.Contains("\n"))
+                todoList.Remove("\n");
+
+            for (int i = 0; i < todoList.Count; i++) {
+                string temp = todoList[i];
+                string newString = (i + 1).ToString() + ".";
+
+                int intEnd = todoList[i].IndexOf(".");
+                bool yes = Int32.TryParse(todoList[i].Substring(0, intEnd), out _);
+                if (yes) {
+                    newString += temp.Substring(intEnd + 1);
+                    todoList[i] = newString;
+                }
+
+                while (todoList[i].IndexOf(".") != todoList[i].LastIndexOf(".")) {
+                    string newDotlessEntry = todoList[i].Substring(0, todoList[i].IndexOf(".")) + todoList[i].Substring(todoList[i].LastIndexOf("."));
+                    todoList[i] = newDotlessEntry;
+                }
             }
+
+            UpdateTextFields();
+        }
+
+        public void TodoAdd(string entry) {
+            while (todoList.Contains("\n"))
+                todoList.Remove("\n");
+
+            todoList.Add("0. " + entry + "\n");
+            TodoSort();
         }
 
         public void TodoRemove(int entry) {
+            while (todoList.Contains("\n"))
+                todoList.Remove("\n");
+
+            --entry;
             try {
                 todoList.RemoveAt(entry);
             } catch (ArgumentOutOfRangeException) {
                 this.console.Text = "";
                 return;
-            }
-
-            for (int i = entry; i < todoList.Count; i++) {
-                string temp = todoList[i];
-                string newString = i.ToString() + ".";
-                int intEnd = todoList[todoList.Count - 1].IndexOf(".");
-                if (Int32.TryParse(temp.Substring(0, intEnd), out _)) {
-                    newString += temp.Substring(2);
-                    todoList[i] = newString;
-                }
-            }
+            }/*
             todoList.Sort((x, y) => {
                 int intEndX = x.IndexOf(".");
                 int intEndY = y.IndexOf(".");
@@ -122,8 +134,9 @@ namespace JournalMaybe {
                 } else {
                     return 1;
                 }
-            });
-            this.UpdateTextFields();
+            });*/
+            TodoSort();
+            UpdateTextFields();
         }
 
         public Form1() {
@@ -138,6 +151,7 @@ namespace JournalMaybe {
 
             InitializeComponent();
             ReadFiles();
+            TodoSort();
         }
 
         protected override void WndProc(ref Message m) {
@@ -212,18 +226,22 @@ namespace JournalMaybe {
                 if (this.console.Text.StartsWith("\n")) {
                     this.console.Text = this.console.Text.Split("\n")[1];
                 }
-                string entry = this.console.Text.Substring(4);
-                if (this.console.Text.Substring(0, 3).Contains("add")) {
-                    TodoAdd(this.console.Text.Substring(4));
-                } else if (this.console.Text.Substring(0, 3).Contains("rem")) {
-                    int remEntry = 0;
-                    bool yesPlease = Int32.TryParse(entry, out remEntry);
-                    if (!yesPlease) {
-                        this.console.Text = "";
-                        return;
-                    } else {
-                        TodoRemove(remEntry);
+                try {
+                    string entry = this.console.Text.Substring(4);
+                    if (this.console.Text.Substring(0, 3).Contains("add")) {
+                        TodoAdd(this.console.Text.Substring(4));
+                    } else if (this.console.Text.Substring(0, 3).Contains("rem")) {
+                        int remEntry;
+                        bool yesPlease = Int32.TryParse(entry, out remEntry);
+                        if (!yesPlease) {
+                            this.console.Text = "";
+                            return;
+                        } else {
+                            TodoRemove(remEntry);
+                        }
                     }
+                } catch (ArgumentOutOfRangeException) {
+                    return;
                 }
                 this.console.Text = "";
             }
