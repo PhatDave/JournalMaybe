@@ -209,6 +209,9 @@ namespace JournalMaybe {
 
         private void ConsoleSubmit(object sender, KeyEventArgs e) {
             if (e.KeyCode == Keys.Enter) {
+                if (this.console.Text.StartsWith("\n")) {
+                    this.console.Text = this.console.Text.Split("\n")[1];
+                }
                 string entry = this.console.Text.Substring(4);
                 if (this.console.Text.Substring(0, 3).Contains("add")) {
                     TodoAdd(this.console.Text.Substring(4));
