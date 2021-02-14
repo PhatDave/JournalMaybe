@@ -29,12 +29,6 @@ namespace JournalMaybe {
         static List<string> reminderComments = new List<string>();
         static DateTime currentAlarm;
         static bool alarmBeep = false;
-        static Thread alarm = new Thread(() => {
-            while (alarmBeep) {
-                Console.Beep(2000, 300);
-                Thread.Sleep(150);
-            }
-        });
 
         public void ReadFiles() {
             foreach (string file in files) {
@@ -149,8 +143,13 @@ namespace JournalMaybe {
         public void AlarmBeep(object someGarbage, EventArgs thatWeIgnore) {
             this.alarmTimer.Enabled = false;
             alarmBeep = true;
-            if (alarm.IsAlive == false)
-                alarm.Start();
+            Thread alarm = new Thread(() => {
+                while (alarmBeep) {
+                    Console.Beep(2000, 300);
+                    Thread.Sleep(150);
+                }
+            });
+            alarm.Start();
         }
 
         public void FuckOffAlarm() {
