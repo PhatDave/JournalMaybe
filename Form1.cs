@@ -13,6 +13,7 @@ namespace JournalMaybe {
     }
 
     public partial class Form1 : Form {
+        private bool timerEnablePopup = true;
         [DllImport("user32.dll")]
         public static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vlc);
 
@@ -103,10 +104,8 @@ namespace JournalMaybe {
             }
             System.IO.File.WriteAllText(files[2], reminderText);
             this.reminder.Text = reminderText;
-            UpdateAlarm();
         }
 
-        // TODO: Remove out of date reminders pls
         public void SortReminders() {
             reminderList.Sort((x, y) => DateTime.Compare(x, y));
             try {
@@ -115,33 +114,7 @@ namespace JournalMaybe {
             } catch (ArgumentOutOfRangeException) { return; }
         }
 
-        public void UpdateAlarm() {
-            SortReminders();
-            try {
-                int compare = DateTime.Compare(currentAlarm, reminderList[0]);
-                if (compare > 0 || currentAlarm.Year == 1) {
-                    if (currentAlarm.Day == reminderList[0].Day || currentAlarm.Year == 1) {
-                        currentAlarm = reminderList[0];
-                        this.alarmTimer.Interval = GetTimeDifference(currentAlarm, DateTime.Now) * 1000;
-                        this.alarmTimer.Enabled = true;
-                    } else { return; }
-                } else if (compare < 0)
-                    return;
-                else if (compare == 0)
-                    return;
-            } catch (ArgumentOutOfRangeException) { this.alarmTimer.Enabled = false; return; }
-        }
-
-        public int TimeToSeconds(DateTime time) {
-            return time.Hour * 3600 + time.Minute * 60 + time.Second;
-        }
-
-        public int GetTimeDifference(DateTime first, DateTime second) {
-            return TimeToSeconds(first) - TimeToSeconds(second);
-        }
-
-        public void AlarmBeep(object someGarbage, EventArgs thatWeIgnore) {
-            this.alarmTimer.Enabled = false;
+        public void AlarmBeep() {
             alarmBeep = true;
             Thread alarm = new Thread(() => {
                 while (alarmBeep) {
@@ -156,8 +129,8 @@ namespace JournalMaybe {
             if (alarmBeep) {
                 alarmBeep = false;
                 currentAlarm = new DateTime();
+                SortReminders();
             }
-            UpdateAlarm();
         }
 
         public void TodoSort() {
@@ -250,12 +223,9 @@ namespace JournalMaybe {
                     this.console.Text = "";
                     Application.OpenForms[this.Name].Activate();
                     this.ActiveControl = this.currentEntry;
-                    UpdateAlarm();
                 } else if (id == 2 && this.Visible == true) {
                     BeepThread.BeepPlease(800, 500);
                     this.Hide();
-                    AdjustTimer();
-                    UpdateAlarm();
                 } else if (id == 1 && this.Visible == true) {
                     Application.OpenForms[this.Name].Activate();
                     this.ActiveControl = this.currentEntry;
@@ -278,27 +248,22 @@ namespace JournalMaybe {
             base.WndProc(ref m);
         }
 
-        public void AdjustTimer() {
-            DateTime now = DateTime.Now;
-            int min = (now.Minute / 10 + 1) * 10;
-            int hour = now.Hour;
-            if (min == 60)
-                min = 0;
-            if (min == 0 && hour == now.Hour)
-                ++hour;
-            DateTime diffTime = new DateTime(now.Year, now.Month, now.Day, hour, min, 0);
-            this.timer1.Interval = GetTimeDifference(diffTime, now) * 1000;
-        }
-
         private void TimerTick(object sender, EventArgs e) {
-            BeepThread.BeepPlease(1200, 500);
-            if (!this.Visible) {
-                this.currentEntry.Text = "";
-                this.console.Text = "";
-                ReadFiles();
-                this.Show();
-                this.ActiveControl = this.currentEntry;
+            DateTime now = DateTime.Now;
+            if (now.Minute % 10 != 0 && !timerEnablePopup) { timerEnablePopup = true; }
+            else if (now.Minute % 10 == 0 && timerEnablePopup) {
+                BeepThread.BeepPlease(1200, 500);
+                if (!this.Visible) {
+                    this.currentEntry.Text = "";
+                    this.console.Text = "";
+                    ReadFiles();
+                    this.Show();
+                    this.ActiveControl = this.currentEntry;
+                    timerEnablePopup = false;
+                }
             }
+            try { if (now.Date == reminderList[0].Date && now.Hour == reminderList[0].Hour && now.Minute == reminderList[0].Minute && !alarmBeep) { AlarmBeep(); }} catch (ArgumentOutOfRangeException) { return; }
+
         }
 
         private void SubmitEntry(object sender, KeyEventArgs e) {
@@ -308,8 +273,6 @@ namespace JournalMaybe {
                 string[] output = { "[" + DateTime.Now.ToString() + "]\n" + this.currentEntry.Text + "\n\n" };
                 System.IO.File.AppendAllLines(files[1], output);
                 this.currentEntry.Text = "";
-                AdjustTimer();
-                UpdateAlarm();
             }
         }
 
@@ -365,7 +328,6 @@ namespace JournalMaybe {
                             reminderList.Add(date);
                             reminderComments.Add(comment);
                             UpdateTextFields();
-                            UpdateAlarm();
                         } else {
                             this.console.Text = "";
                             return;

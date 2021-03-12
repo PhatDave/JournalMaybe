@@ -1,7 +1,4 @@
-﻿
-using System.Windows.Forms;
-
-namespace JournalMaybe {
+﻿namespace JournalMaybe {
     partial class Form1 {
         /// <summary>
         ///  Required designer variable.
@@ -118,12 +115,7 @@ namespace JournalMaybe {
                 this.timer1 = new System.Windows.Forms.Timer();
                 this.timer1.Tick += new System.EventHandler(this.TimerTick);
                 this.timer1.Enabled = true;
-                this.AdjustTimer();
-
-                this.alarmTimer = new System.Windows.Forms.Timer();
-                this.alarmTimer.Tick += new System.EventHandler(this.AlarmBeep);
-                this.alarmTimer.Enabled = false;
-                this.UpdateAlarm();
+                this.timer1.Interval = 1000;
             } catch (System.ArgumentNullException) {
             }
         }
@@ -136,7 +128,6 @@ namespace JournalMaybe {
         #endregion
 
         private System.Windows.Forms.Timer timer1;
-        private System.Windows.Forms.Timer alarmTimer;
         private System.Windows.Forms.RichTextBox lastEntry;
         private System.Windows.Forms.RichTextBox currentEntry;
         private System.Windows.Forms.RichTextBox console;
