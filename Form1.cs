@@ -253,13 +253,13 @@ namespace JournalMaybe {
             if (now.Minute % 10 != 0 && !timerEnablePopup) { timerEnablePopup = true; }
             else if (now.Minute % 10 == 0 && timerEnablePopup) {
                 BeepThread.BeepPlease(1200, 500);
+                timerEnablePopup = false;
                 if (!this.Visible) {
                     this.currentEntry.Text = "";
                     this.console.Text = "";
                     ReadFiles();
                     this.Show();
                     this.ActiveControl = this.currentEntry;
-                    timerEnablePopup = false;
                 }
             }
             try { if (now.Date == reminderList[0].Date && now.Hour == reminderList[0].Hour && now.Minute == reminderList[0].Minute && !alarmBeep) { AlarmBeep(); }} catch (ArgumentOutOfRangeException) { return; }

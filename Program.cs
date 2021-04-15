@@ -8,6 +8,8 @@ namespace JournalMaybe {
         /// </summary>
         [STAThread]
         static void Main() {
+            //int[] test = new int[10];
+            //test[12] = 13;
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
