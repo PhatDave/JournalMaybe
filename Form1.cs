@@ -125,7 +125,7 @@ namespace JournalMaybe {
             alarm.Start();
         }
 
-        public void FuckOffAlarm() {
+        public void StopAlarm() {
             if (alarmBeep) {
                 alarmBeep = false;
                 currentAlarm = new DateTime();
@@ -214,7 +214,7 @@ namespace JournalMaybe {
         protected override void WndProc(ref Message m) {
             if (m.Msg == 0x0312) {
                 int id = m.WParam.ToInt32();
-                FuckOffAlarm();
+                StopAlarm();
                 if (id == 1 && this.Visible == false) {
                     ReadFiles();
                     BeepThread.BeepPlease(1200, 500);
